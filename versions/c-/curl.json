@@ -111,6 +111,11 @@
       "port-version": 0
     },
     {
+      "git-tree": "9bccb7b35deb529775e03eac3383467c3cb5ec68",
+      "version": "8.2.1",
+      "port-version": 1
+    },
+    {
       "git-tree": "1e4df4c9590fb15d2d73014c66dbbc151b624b9b",
       "version": "8.2.1",
       "port-version": 0
