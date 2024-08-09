@@ -48,6 +48,8 @@ elseif(VCPKG_TARGET_IS_OSX)
     string(APPEND OPTIONS " --target-os=darwin --enable-appkit --enable-avfoundation --enable-coreimage --enable-audiotoolbox --enable-videotoolbox")
 elseif(VCPKG_TARGET_IS_IOS)
     string(APPEND OPTIONS " --enable-avfoundation --enable-coreimage --enable-videotoolbox")
+elseif(VCPKG_TARGET_IS_TVOS)
+    string(APPEND OPTIONS " --enable-coreimage --enable-videotoolbox")
 elseif(VCPKG_CMAKE_SYSTEM_NAME STREQUAL "Android")
     string(APPEND OPTIONS " --target-os=android --enable-jni --enable-mediacodec")
 elseif(VCPKG_CMAKE_SYSTEM_NAME STREQUAL "QNX")
@@ -433,7 +435,7 @@ else()
         string(APPEND OPTIONS " --enable-schannel")
     elseif(VCPKG_TARGET_IS_OSX)
         string(APPEND OPTIONS " --enable-securetransport")
-    elseif(VCPKG_TARGET_IS_IOS)
+    elseif(VCPKG_TARGET_IS_IOS OR VCPKG_TARGET_IS_TVOS)
         string(APPEND OPTIONS " --enable-securetransport")
     endif()
 endif()
@@ -641,6 +643,65 @@ if (VCPKG_TARGET_IS_IOS)
             set(requested_sysroot "iphoneos")
         elseif (VCPKG_TARGET_ARCHITECTURE STREQUAL "x64")
             set(requested_sysroot "iphonesimulator")
+        else ()
+            message(FATAL_ERROR "Unsupported build arch: ${VCPKG_TARGET_ARCHITECTURE}")
+        endif ()
+        message(STATUS "Retrieving default SDK for ${requested_sysroot}")
+        execute_process(
+                COMMAND /usr/bin/xcrun --sdk ${requested_sysroot} --show-sdk-path
+                OUTPUT_VARIABLE sdk_path
+                ERROR_VARIABLE xcrun_error
+                OUTPUT_STRIP_TRAILING_WHITESPACE
+                ERROR_STRIP_TRAILING_WHITESPACE
+        )
+        if (sdk_path)
+            message(STATUS "Found!")
+            set(vcpkg_osx_sysroot "${sdk_path}")
+        else ()
+            message(FATAL_ERROR "Can't determine ${CMAKE_OSX_SYSROOT} SDK path. Error: ${xcrun_error}")
+        endif ()
+    endif ()
+    set(OPTIONS "${OPTIONS} --extra-cflags=-isysroot\"${vcpkg_osx_sysroot}\"")
+    set(OPTIONS "${OPTIONS} --extra-ldflags=-isysroot\"${vcpkg_osx_sysroot}\"")
+endif ()
+
+if (VCPKG_TARGET_IS_TVOS)
+    set(vcpkg_target_arch "${VCPKG_TARGET_ARCHITECTURE}")
+    if (VCPKG_TARGET_ARCHITECTURE STREQUAL "x64")
+        set(vcpkg_target_arch "x86_64")
+    elseif (VCPKG_TARGET_ARCHITECTURE STREQUAL "arm")
+        message(FATAL_ERROR "You can build for arm up to tvOS 10 but ffmpeg can only be built for tvOS 11.0 and later.
+                            Did you mean arm64?")
+    elseif (VCPKG_TARGET_ARCHITECTURE STREQUAL "x86")
+        message(FATAL_ERROR "You can build for x86 up to tvOS 10 but ffmpeg can only be built for tvOS 11.0 and later.
+                            Did you mean x64")
+    endif ()
+
+    set(vcpkg_osx_deployment_target "${VCPKG_OSX_DEPLOYMENT_TARGET}")
+    if (NOT VCPKG_OSX_DEPLOYMENT_TARGET)
+        set(vcpkg_osx_deployment_target 11.0)
+    elseif (VCPKG_OSX_DEPLOYMENT_TARGET LESS 11.0) # nowadays ffmpeg needs to be built for tvos 11.0 and later
+        message(FATAL_ERROR "ffmpeg can be built only for tvOS 11.0 and later but you set VCPKG_OSX_DEPLOYMENT_TARGET to
+                            ${VCPKG_OSX_DEPLOYMENT_TARGET}")
+    endif ()
+
+    if (VCPKG_OSX_SYSROOT STREQUAL "appletvsimulator")
+        set(simulator "-simulator")
+    endif ()
+
+    set(OPTIONS "${OPTIONS} --extra-cflags=--target=${vcpkg_target_arch}-apple-tvos${vcpkg_osx_deployment_target}${simulator}")
+    set(OPTIONS "${OPTIONS} --extra-ldflags=--target=${vcpkg_target_arch}-apple-tvos${vcpkg_osx_deployment_target}${simulator}")
+
+    set(vcpkg_osx_sysroot "${VCPKG_OSX_SYSROOT}")
+    # only on x64 for some reason you need to specify the sdk path, otherwise it will try to build with the MacOS sdk
+    # (on apple silicon it's not required but shouldn't cause any problems)
+    if ((VCPKG_OSX_SYSROOT MATCHES "^(appletvos|appletvsimulator)$") OR (NOT VCPKG_OSX_SYSROOT) OR (VCPKG_OSX_SYSROOT STREQUAL "")) # if it's not a path
+        if (VCPKG_OSX_SYSROOT MATCHES "^(appletvos|appletvsimulator)$")
+            set(requested_sysroot "${VCPKG_OSX_SYSROOT}")
+        elseif (VCPKG_TARGET_ARCHITECTURE STREQUAL "arm64") # if the sysroot is not specified we have to guess
+            set(requested_sysroot "appletvos")
+        elseif (VCPKG_TARGET_ARCHITECTURE STREQUAL "x64")
+            set(requested_sysroot "appletvsimulator")
         else ()
             message(FATAL_ERROR "Unsupported build arch: ${VCPKG_TARGET_ARCHITECTURE}")
         endif ()

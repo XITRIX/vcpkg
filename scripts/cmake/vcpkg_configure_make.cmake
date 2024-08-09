@@ -375,7 +375,7 @@ function(vcpkg_configure_make)
     endif()
 
    # macOS - cross-compiling support
-    if(VCPKG_TARGET_IS_OSX OR VCPKG_TARGET_IS_IOS)
+    if(VCPKG_TARGET_IS_OSX OR VCPKG_TARGET_IS_IOS OR VCPKG_TARGET_IS_TVOS)
         if (requires_autoconfig AND NOT arg_BUILD_TRIPLET OR arg_DETERMINE_BUILD_TRIPLET)
             z_vcpkg_determine_autotools_host_arch_mac(BUILD_ARCH) # machine you are building on => --build=
             z_vcpkg_determine_autotools_target_arch_mac(TARGET_ARCH)
@@ -830,7 +830,7 @@ function(vcpkg_configure_make)
             set(ENV{ARFLAGS} "${ARFLAGS_${current_buildtype}}")
         endif()
 
-        if(VCPKG_TARGET_IS_OSX OR VCPKG_TARGET_IS_IOS)
+        if(VCPKG_TARGET_IS_OSX OR VCPKG_TARGET_IS_IOS OR VCPKG_TARGET_IS_TVOS)
             # configure not using all flags to check if compiler works ...
             set(ENV{CC} "$ENV{CC} $ENV{CPPFLAGS} $ENV{CFLAGS}")
             set(ENV{CC_FOR_BUILD} "$ENV{CC_FOR_BUILD} $ENV{CPPFLAGS} $ENV{CFLAGS}")

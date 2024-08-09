@@ -151,7 +151,7 @@
     },
     "sectransp": {
       "description": "SSL support (sectransp)",
-      "supports": "osx | ios"
+      "supports": "osx | ios | tvos"
     },
     "ssh": {
       "description": "SSH support via libssh2",
@@ -182,7 +182,7 @@
           "features": [
             "sectransp"
           ],
-          "platform": "osx | ios"
+          "platform": "osx | ios | tvos"
         },
         {
           "name": "curl",
@@ -198,7 +198,7 @@
           "features": [
             "openssl"
           ],
-          "platform": "(uwp | !windows) & !(osx | ios) & !mingw"
+          "platform": "(uwp | !windows) & !(osx | ios | tvos) & !mingw"
         }
       ]
     },
