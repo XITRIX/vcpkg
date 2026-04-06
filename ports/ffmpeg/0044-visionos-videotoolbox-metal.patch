@@ -1,0 +1,16 @@
+diff --git a/libavcodec/videotoolbox.c b/libavcodec/videotoolbox.c
+index f2fdb89..81daebe 100644
+--- a/libavcodec/videotoolbox.c
++++ b/libavcodec/videotoolbox.c
+@@ -785,7 +785,11 @@ static CFDictionaryRef videotoolbox_buffer_attributes_create(int width,
+     CFDictionarySetValue(buffer_attributes, kCVPixelBufferWidthKey, w);
+     CFDictionarySetValue(buffer_attributes, kCVPixelBufferHeightKey, h);
+ #if TARGET_OS_IPHONE
++#if TARGET_OS_VISION
++    CFDictionarySetValue(buffer_attributes, kCVPixelBufferMetalCompatibilityKey, kCFBooleanTrue);
++#else
+     CFDictionarySetValue(buffer_attributes, kCVPixelBufferOpenGLESCompatibilityKey, kCFBooleanTrue);
++#endif
+ #else
+     CFDictionarySetValue(buffer_attributes, kCVPixelBufferIOSurfaceOpenGLTextureCompatibilityKey, kCFBooleanTrue);
+ #endif

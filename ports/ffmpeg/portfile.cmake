@@ -18,6 +18,7 @@ vcpkg_from_github(
         0040-ffmpeg-add-av_stream_get_first_dts-for-chromium.patch # Do not remove this patch. It is required by chromium
         0041-add-const-for-opengl-definition.patch
         0043-fix-miss-head.patch
+        0044-visionos-videotoolbox-metal.patch
 )
 
 if(SOURCE_PATH MATCHES " ")
@@ -50,6 +51,10 @@ elseif(VCPKG_TARGET_IS_IOS)
     string(APPEND OPTIONS " --enable-avfoundation --enable-coreimage --enable-videotoolbox")
 elseif(VCPKG_TARGET_IS_TVOS)
     string(APPEND OPTIONS " --enable-coreimage --enable-videotoolbox")
+elseif(VCPKG_TARGET_IS_VISIONOS)
+    # visionOS exposes VideoToolbox/CoreImage, but AVFoundation capture APIs used
+    # by FFmpeg's avfoundation device are unavailable there.
+    string(APPEND OPTIONS " --disable-avfoundation --enable-coreimage --enable-videotoolbox")
 elseif(VCPKG_CMAKE_SYSTEM_NAME STREQUAL "Android")
     string(APPEND OPTIONS " --target-os=android --enable-jni --enable-mediacodec")
 elseif(VCPKG_CMAKE_SYSTEM_NAME STREQUAL "QNX")
@@ -435,7 +440,7 @@ else()
         string(APPEND OPTIONS " --enable-schannel")
     elseif(VCPKG_TARGET_IS_OSX)
         string(APPEND OPTIONS " --enable-securetransport")
-    elseif(VCPKG_TARGET_IS_IOS OR VCPKG_TARGET_IS_TVOS)
+    elseif(VCPKG_TARGET_IS_IOS OR VCPKG_TARGET_IS_TVOS OR VCPKG_TARGET_IS_VISIONOS)
         string(APPEND OPTIONS " --enable-securetransport")
     endif()
 endif()
@@ -702,6 +707,59 @@ if (VCPKG_TARGET_IS_TVOS)
             set(requested_sysroot "appletvos")
         elseif (VCPKG_TARGET_ARCHITECTURE STREQUAL "x64")
             set(requested_sysroot "appletvsimulator")
+        else ()
+            message(FATAL_ERROR "Unsupported build arch: ${VCPKG_TARGET_ARCHITECTURE}")
+        endif ()
+        message(STATUS "Retrieving default SDK for ${requested_sysroot}")
+        execute_process(
+                COMMAND /usr/bin/xcrun --sdk ${requested_sysroot} --show-sdk-path
+                OUTPUT_VARIABLE sdk_path
+                ERROR_VARIABLE xcrun_error
+                OUTPUT_STRIP_TRAILING_WHITESPACE
+                ERROR_STRIP_TRAILING_WHITESPACE
+        )
+        if (sdk_path)
+            message(STATUS "Found!")
+            set(vcpkg_osx_sysroot "${sdk_path}")
+        else ()
+            message(FATAL_ERROR "Can't determine ${CMAKE_OSX_SYSROOT} SDK path. Error: ${xcrun_error}")
+        endif ()
+    endif ()
+    set(OPTIONS "${OPTIONS} --extra-cflags=-isysroot\"${vcpkg_osx_sysroot}\"")
+    set(OPTIONS "${OPTIONS} --extra-ldflags=-isysroot\"${vcpkg_osx_sysroot}\"")
+endif ()
+
+if (VCPKG_TARGET_IS_VISIONOS)
+    set(vcpkg_target_arch "${VCPKG_TARGET_ARCHITECTURE}")
+    if (VCPKG_TARGET_ARCHITECTURE STREQUAL "x64")
+        set(vcpkg_target_arch "x86_64")
+    elseif (NOT VCPKG_TARGET_ARCHITECTURE STREQUAL "arm64")
+        message(FATAL_ERROR "ffmpeg currently supports arm64 or x64 when targeting visionOS, not ${VCPKG_TARGET_ARCHITECTURE}")
+    endif ()
+
+    set(vcpkg_osx_deployment_target "${VCPKG_OSX_DEPLOYMENT_TARGET}")
+    if (NOT VCPKG_OSX_DEPLOYMENT_TARGET)
+        set(vcpkg_osx_deployment_target 1.0)
+    elseif (VCPKG_OSX_DEPLOYMENT_TARGET LESS 1.0)
+        message(FATAL_ERROR "ffmpeg can be built only for visionOS 1.0 and later but you set VCPKG_OSX_DEPLOYMENT_TARGET to
+                            ${VCPKG_OSX_DEPLOYMENT_TARGET}")
+    endif ()
+
+    if (VCPKG_OSX_SYSROOT STREQUAL "xrsimulator")
+        set(simulator "-simulator")
+    endif ()
+
+    set(OPTIONS "${OPTIONS} --extra-cflags=--target=${vcpkg_target_arch}-apple-xros${vcpkg_osx_deployment_target}${simulator}")
+    set(OPTIONS "${OPTIONS} --extra-ldflags=--target=${vcpkg_target_arch}-apple-xros${vcpkg_osx_deployment_target}${simulator}")
+
+    set(vcpkg_osx_sysroot "${VCPKG_OSX_SYSROOT}")
+    if ((VCPKG_OSX_SYSROOT MATCHES "^(xros|xrsimulator)$") OR (NOT VCPKG_OSX_SYSROOT) OR (VCPKG_OSX_SYSROOT STREQUAL ""))
+        if (VCPKG_OSX_SYSROOT MATCHES "^(xros|xrsimulator)$")
+            set(requested_sysroot "${VCPKG_OSX_SYSROOT}")
+        elseif (VCPKG_TARGET_ARCHITECTURE STREQUAL "arm64")
+            set(requested_sysroot "xros")
+        elseif (VCPKG_TARGET_ARCHITECTURE STREQUAL "x64")
+            set(requested_sysroot "xrsimulator")
         else ()
             message(FATAL_ERROR "Unsupported build arch: ${VCPKG_TARGET_ARCHITECTURE}")
         endif ()
